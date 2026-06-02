@@ -1,0 +1,6 @@
+.env
+.DS_Store
+__pycache__/
+.tmp/*
+!.tmp/.gitkeep
+usage_stats.json

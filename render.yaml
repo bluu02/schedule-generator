@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: schedule-generator
+    runtime: python
+    buildCommand: "true"
+    startCommand: "python3 server.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: OPENROUTER_MODEL
+        value: openrouter/auto
+      - key: GROQ_MODEL
+        value: meta-llama/llama-4-scout-17b-16e-instruct
+      - key: OPENROUTER_DOUBLE_CHECK
+        value: "true"
+      - key: STRICT_MODE
+        value: "true"
+      - key: NO_TIME_MODE
+        value: "true"
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
