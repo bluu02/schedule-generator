@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Schedule to Calendar</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js?v=20260602l" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Teacher schedule converter</p>
+          <h1>Schedule to Calendar</h1>
+        </div>
+        <div class="actions">
+          <button class="secondary" id="sampleBtn" type="button">Try Sample</button>
+          <button class="primary" id="downloadBtn" type="button" disabled>Download ICS</button>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <aside class="panel upload-panel" aria-label="Schedule upload and OCR">
+          <label class="upload-box" for="imageInput">
+            <span class="upload-icon" aria-hidden="true">+</span>
+            <span class="upload-title">Upload schedule screenshots</span>
+            <span class="upload-copy">Select one or more PNG, JPG, or WebP files</span>
+            <span class="upload-copy">Use non-overlapping screenshots so each date row appears only once.</span>
+            <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" multiple>
+          </label>
+
+          <div class="preview-wrap">
+            <div class="preview-grid" id="previewGrid" aria-label="Selected screenshot previews"></div>
+            <p id="emptyPreview">No screenshots selected</p>
+          </div>
+          <button class="primary wide" id="grokBtn" type="button" disabled>Scan with OpenRouter</button>
+          <div class="scan-loader" id="scanLoader" hidden>
+            <div class="scan-loader-head">
+              <strong>Scan Mission</strong>
+              <span id="scanLoaderPct">0%</span>
+            </div>
+            <p class="scan-loader-stage" id="scanLoaderStage">Preparing screenshots</p>
+            <div class="scan-loader-track" aria-hidden="true">
+              <span class="scan-loader-fill" id="scanLoaderFill"></span>
+            </div>
+          </div>
+          <progress id="ocrProgress" max="100" value="0" hidden></progress>
+          <p class="status" id="status">Upload one or more screenshots to begin.</p>
+          <p class="usage-stats" id="usageStats">Usage today: 0 scans (0 images) | Total: 0 scans</p>
+        </aside>
+
+        <section class="panel editor-panel" aria-label="Schedule text and event review">
+          <div class="controls-grid">
+            <label>
+              <span>Default title</span>
+              <input id="defaultTitle" type="text" value="Teaching Schedule">
+            </label>
+            <label>
+              <span>Calendar name</span>
+              <input id="calendarName" type="text" placeholder="June 2026 Work Schedule">
+            </label>
+            <label>
+              <span>Schedule month</span>
+              <input id="monthInput" type="month">
+            </label>
+          </div>
+
+          <label class="text-block">
+            <span>Recognized schedule text</span>
+            <textarea id="ocrText" spellcheck="false" placeholder="OCR text will appear here. You can paste schedule text here too."></textarea>
+          </label>
+
+          <div class="parse-row">
+            <button class="secondary" id="parseBtn" type="button">Parse Events</button>
+            <button class="ghost" id="addRowBtn" type="button">Add Event</button>
+            <button class="ghost danger" id="clearBtn" type="button">Clear</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>All day</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>Title</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="eventsBody">
+                <tr class="empty-row">
+                  <td colspan="6">Parsed events will appear here.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="export-band" aria-label="Calendar export">
+        <div>
+          <h2>Calendar export</h2>
+          <p id="exportSummary">No events ready yet.</p>
+        </div>
+        <div class="export-actions">
+          <button class="secondary" id="googleBtn" type="button" disabled>Open First in Google</button>
+          <button class="primary" id="appleBtn" type="button" disabled>Download for Apple</button>
+        </div>
+      </section>
+
+    </main>
+  </body>
+</html>
