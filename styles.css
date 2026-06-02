@@ -523,21 +523,239 @@ tbody tr:nth-child(even) td {
     align-items: stretch;
     flex-direction: column;
   }
+
+  .upload-panel {
+    order: 1;
+  }
+
+  .editor-panel {
+    order: 2;
+  }
+
+  .preview-wrap {
+    min-height: 220px;
+    max-height: 360px;
+  }
+
+  .preview-grid {
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  }
 }
 
 @media (max-width: 560px) {
+  body {
+    background: #f3f6fa;
+  }
+
   .shell {
-    width: min(100% - 20px, 1380px);
-    padding-top: 14px;
+    width: 100%;
+    padding: 10px 10px 22px;
+  }
+
+  .topbar {
+    min-height: auto;
+    gap: 12px;
+    padding: 4px 0 2px;
+  }
+
+  .eyebrow {
+    font-size: 0.74rem;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+    line-height: 1.08;
+  }
+
+  h2 {
+    font-size: 1.02rem;
+  }
+
+  .workspace {
+    gap: 12px;
+  }
+
+  .panel,
+  .export-band {
+    border-radius: 8px;
+    box-shadow: 0 8px 18px rgba(18, 35, 56, 0.06);
+  }
+
+  .upload-panel,
+  .editor-panel,
+  .export-band {
+    padding: 12px;
+  }
+
+  .upload-box {
+    min-height: 136px;
+    padding: 14px 10px;
+  }
+
+  .upload-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 1.45rem;
+  }
+
+  .upload-copy {
+    font-size: 0.82rem;
+    line-height: 1.35;
+  }
+
+  .actions,
+  .export-actions,
+  .parse-row {
+    width: 100%;
   }
 
   .actions button,
   .export-actions button,
   .parse-row button {
-    flex: 1 1 150px;
+    flex: 1 1 100%;
+    width: 100%;
   }
 
   .preview-wrap {
-    min-height: 210px;
+    min-height: 164px;
+    max-height: 280px;
+    padding: 8px;
+  }
+
+  .preview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .preview-item img {
+    aspect-ratio: 5 / 4;
+  }
+
+  #emptyPreview {
+    min-height: 142px;
+  }
+
+  .controls-grid {
+    gap: 10px;
+  }
+
+  label span {
+    font-size: 0.8rem;
+  }
+
+  input {
+    height: 44px;
+  }
+
+  textarea {
+    min-height: 150px;
+    max-height: 38vh;
+  }
+
+  .table-wrap {
+    border: 0;
+    background: transparent;
+    overflow: visible;
+  }
+
+  table,
+  thead,
+  tbody,
+  tr,
+  td {
+    display: block;
+    width: 100%;
+  }
+
+  table {
+    min-width: 0;
+    border-collapse: separate;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  tbody tr {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(18, 35, 56, 0.04);
+    overflow: hidden;
+  }
+
+  tbody tr:nth-child(even) td {
+    background: transparent;
+  }
+
+  td {
+    min-height: 58px;
+    border-bottom: 1px solid #e4eaf2;
+    display: grid;
+    grid-template-columns: 78px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+  }
+
+  td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 800;
+  }
+
+  td:last-child {
+    border-bottom: 0;
+  }
+
+  td input {
+    min-width: 0;
+  }
+
+  td:nth-child(4) input,
+  td:nth-child(5) input {
+    min-width: 0;
+  }
+
+  td[data-label="All day"] input {
+    width: 22px;
+    height: 22px;
+  }
+
+  td[data-label="Remove"] {
+    min-height: 50px;
+  }
+
+  .remove-btn {
+    width: 100%;
+  }
+
+  .empty-row td {
+    display: grid;
+    grid-template-columns: 1fr;
+    height: 76px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  .empty-row td::before {
+    content: "";
+    display: none;
+  }
+
+  .status,
+  .usage-stats {
+    font-size: 0.8rem;
+  }
+
+  .export-band {
+    margin-top: 12px;
   }
 }

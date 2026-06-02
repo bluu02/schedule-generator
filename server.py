@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import base64
-import cgi
+import io
 import json
 import mimetypes
 import os
@@ -9,6 +9,8 @@ import sys
 import urllib.error
 import urllib.request
 from datetime import datetime
+from email.parser import BytesParser
+from email.policy import default as email_default_policy
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 
@@ -162,14 +164,7 @@ class ScheduleHandler(SimpleHTTPRequestHandler):
             return
 
         try:
-            fields = cgi.FieldStorage(
-                fp=self.rfile,
-                headers=self.headers,
-                environ={
-                    "REQUEST_METHOD": "POST",
-                    "CONTENT_TYPE": self.headers.get("Content-Type", ""),
-                },
-            )
+            fields = parse_multipart_fields(self)
             month = field_value(fields, "month") or ""
             calendar_name = field_value(fields, "calendarName") or "Work Schedule"
             images = field_list(fields, "screenshots")
@@ -282,6 +277,54 @@ class ScheduleHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+
+class FormField:
+    def __init__(self, name, value="", filename="", content_type="", data=b""):
+        self.name = name
+        self.value = value
+        self.filename = filename
+        self.type = content_type
+        self.file = io.BytesIO(data)
+
+
+def parse_multipart_fields(handler):
+    content_type = handler.headers.get("Content-Type", "")
+    content_length = int(handler.headers.get("Content-Length", "0") or "0")
+    if not content_length:
+        return {}
+
+    raw_body = handler.rfile.read(content_length)
+    message_bytes = (
+        f"Content-Type: {content_type}\r\n"
+        f"Content-Length: {content_length}\r\n"
+        "\r\n"
+    ).encode("utf-8") + raw_body
+    message = BytesParser(policy=email_default_policy).parsebytes(message_bytes)
+    fields = {}
+
+    for part in message.iter_parts():
+        name = part.get_param("name", header="content-disposition")
+        if not name:
+            continue
+        filename = part.get_filename() or ""
+        payload = part.get_payload(decode=True) or b""
+        content_type = part.get_content_type() or ""
+        if filename:
+            field = FormField(name=name, filename=filename, content_type=content_type, data=payload)
+        else:
+            charset = part.get_content_charset() or "utf-8"
+            value = payload.decode(charset, "replace")
+            field = FormField(name=name, value=value, content_type=content_type, data=payload)
+
+        if name in fields:
+            if not isinstance(fields[name], list):
+                fields[name] = [fields[name]]
+            fields[name].append(field)
+        else:
+            fields[name] = field
+
+    return fields
 
 
 def field_value(fields, name):

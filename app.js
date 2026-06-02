@@ -654,12 +654,12 @@ function renderEvents() {
     events.forEach((event, index) => {
       const row = document.createElement("tr");
       row.innerHTML = `
-        <td><input type="date" value="${escapeAttr(event.date)}" data-field="date" data-index="${index}"></td>
-        <td><input type="checkbox" ${event.allDay ? "checked" : ""} data-field="allDay" data-index="${index}"></td>
-        <td><input type="time" value="${escapeAttr(event.start)}" data-field="start" data-index="${index}" ${event.allDay ? "disabled" : ""}></td>
-        <td><input type="time" value="${escapeAttr(event.end)}" data-field="end" data-index="${index}" ${event.allDay ? "disabled" : ""}></td>
-        <td><input type="text" value="${escapeAttr(event.title)}" data-field="title" data-index="${index}"></td>
-        <td><button class="remove-btn" type="button" aria-label="Remove event" data-remove="${index}">x</button></td>
+        <td data-label="Date"><input type="date" value="${escapeAttr(event.date)}" data-field="date" data-index="${index}"></td>
+        <td data-label="All day"><input type="checkbox" ${event.allDay ? "checked" : ""} data-field="allDay" data-index="${index}"></td>
+        <td data-label="Start"><input type="time" value="${escapeAttr(event.start)}" data-field="start" data-index="${index}" ${event.allDay ? "disabled" : ""}></td>
+        <td data-label="End"><input type="time" value="${escapeAttr(event.end)}" data-field="end" data-index="${index}" ${event.allDay ? "disabled" : ""}></td>
+        <td data-label="Title"><input type="text" value="${escapeAttr(event.title)}" data-field="title" data-index="${index}"></td>
+        <td data-label="Remove"><button class="remove-btn" type="button" aria-label="Remove event" data-remove="${index}">x</button></td>
       `;
       eventsBody.appendChild(row);
     });
