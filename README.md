@@ -40,8 +40,7 @@ The exported `.ics` follows the same simple style as the provided example:
 ## Calendar Import
 
 - **Apple Calendar:** open the downloaded `.ics` file.
-- **Google Calendar:** go to Google Calendar settings, choose **Import & export**, then import the `.ics` file.
-- **Open First in Google:** creates a Google Calendar draft for the first event only.
+- **Google Calendar:** click **Download for Google**, then go to Google Calendar settings, choose **Import & export**, and import the `.ics` file.
 
 Bulk automatic Google Calendar insertion requires Google OAuth credentials. The `.ics` workflow avoids that setup and works for both Apple Calendar and Google Calendar.
 

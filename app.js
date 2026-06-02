@@ -90,7 +90,7 @@ sampleBtn.addEventListener("click", () => {
 
 downloadBtn.addEventListener("click", downloadIcs);
 appleBtn.addEventListener("click", downloadIcs);
-googleBtn.addEventListener("click", openFirstGoogleEvent);
+googleBtn.addEventListener("click", downloadGoogleIcs);
 
 function cleanupOcrText(text) {
   return text
@@ -818,6 +818,11 @@ function downloadIcs() {
   URL.revokeObjectURL(url);
 }
 
+function downloadGoogleIcs() {
+  downloadIcs();
+  statusEl.textContent = "Google calendar file downloaded. Import it in Google Calendar settings under Import & export.";
+}
+
 function buildIcs(items) {
   const lines = [
     "BEGIN:VCALENDAR",
@@ -857,26 +862,6 @@ function escapeIcs(value) {
     .replace(/\n/g, "\\n")
     .replace(/,/g, "\\,")
     .replace(/;/g, "\\;");
-}
-
-function openFirstGoogleEvent() {
-  const event = validEvents()[0];
-  if (!event) return;
-
-  const start = googleDate(event.date, event.start);
-  const end = googleDate(event.date, event.end);
-  const params = new URLSearchParams({
-    action: "TEMPLATE",
-    text: event.title,
-    dates: `${start}/${end}`,
-    details: event.notes || "Imported from schedule screenshot.",
-    location: ""
-  });
-  window.open(`https://calendar.google.com/calendar/render?${params.toString()}`, "_blank", "noopener");
-}
-
-function googleDate(date, time) {
-  return `${date.replace(/-/g, "")}T${time.replace(":", "")}00`;
 }
 
 function makeUid() {
