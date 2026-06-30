@@ -18,15 +18,19 @@ Convert teacher schedule input into clean monthly events for calendar export.
    - Upscale readable screenshots for vision models
    - Increase contrast and sharpen text
    - Convert the final image to compressed JPEG for AI upload
-3. Extract schedule-like rows only (date/time/site or off-day signals).
-4. Normalize events:
+3. Scan with AI provider fallback order:
+   - OpenRouter first
+   - Gemini second
+   - Groq final fallback
+4. Extract schedule-like rows only (date/time/site or off-day signals).
+5. Normalize events:
    - Ensure date format
    - Keep only date, time, school name
    - Treat blank/off rows as `Day Off`
-5. Merge same-date split shifts into one combined daily event for display.
-6. Remove duplicates across overlapping inputs.
-7. Ensure whole-month coverage by filling missing dates as `Day Off`.
-8. Export events to ICS.
+6. Merge same-date split shifts into one combined daily event for display.
+7. Remove duplicates across overlapping inputs.
+8. Ensure whole-month coverage by filling missing dates as `Day Off`.
+9. Export events to ICS.
 
 ## Output
 - Clean event list

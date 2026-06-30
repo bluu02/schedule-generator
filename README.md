@@ -11,7 +11,7 @@ A local web app for turning a monthly teacher schedule screenshot into calendar 
    - Use non-overlapping screenshots so each date row appears only once.
    - Use clear, zoomed-in screenshots. Tiny or blurry uploads are rejected before AI scanning.
    - PNG, JPG, and WebP uploads are accepted. Screenshots are sharpened, contrast-adjusted, resized, and converted before being sent to AI.
-5. Click **Scan with OpenRouter**.
+5. Click **Scan with AI**.
 6. Review or fix the recognized text and event rows.
 7. Click **Parse Events** if you edited the text.
 8. Click **Download ICS** or **Download for Apple**.
@@ -25,13 +25,15 @@ OPENROUTER_API_KEY=your_openrouter_api_key_here
 OPENROUTER_MODEL=openrouter/auto
 GROQ_API_KEY=your_groq_api_key_here
 GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 Then restart `python3 server.py`.
 
 If you want a starting template, copy `.env.example` to `.env` and paste your Groq key into `GROQ_API_KEY=...`.
 
-The OpenRouter button uses the local `server.py` backend so your API key stays out of the browser. If OpenRouter hits a rate limit, Groq is used automatically as a fallback when its key is configured.
+The Scan with AI button uses the local `server.py` backend so your API keys stay out of the browser. The provider order is OpenRouter first, Gemini second, then Groq as the final fallback when each key is configured.
 
 The exported `.ics` follows the same simple style as the provided example:
 
@@ -59,8 +61,10 @@ This project is ready to deploy on Render as a Python web service.
    - Start command: `python3 server.py`
 4. Add these environment variables in Render:
    - `OPENROUTER_API_KEY`
+   - `GEMINI_API_KEY`
    - `GROQ_API_KEY`
    - `OPENROUTER_MODEL=openrouter/auto`
+   - `GEMINI_MODEL=gemini-2.5-flash`
    - `GROQ_MODEL=meta-llama/llama-4-scout-17b-16e-instruct`
 
 The included `render.yaml` contains the same settings for Render Blueprint deploys.

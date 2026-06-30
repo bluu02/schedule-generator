@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime
 from email.parser import BytesParser
@@ -26,6 +27,8 @@ except ImportError:
 PORT = int(os.environ.get("PORT", "4173"))
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/auto")
+GEMINI_URL_TEMPLATE = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 GROQ_URL = "https://api.groq.com/openai/v1/responses"
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 OPENROUTER_DOUBLE_CHECK = os.environ.get("OPENROUTER_DOUBLE_CHECK", "true").lower() in ("1", "true", "yes", "on")
@@ -157,8 +160,9 @@ class ScheduleHandler(SimpleHTTPRequestHandler):
             self.send_json({
                 "ok": True,
                 "openrouterConfigured": bool(get_openrouter_api_key()),
+                "geminiConfigured": bool(get_gemini_api_key()),
                 "groqConfigured": bool(get_groq_api_key()),
-                "aiConfigured": bool(get_openrouter_api_key() or get_groq_api_key()),
+                "aiConfigured": bool(get_openrouter_api_key() or get_gemini_api_key() or get_groq_api_key()),
             })
             return
         if self.path == "/api/usage":
@@ -173,8 +177,8 @@ class ScheduleHandler(SimpleHTTPRequestHandler):
             self.send_error(404, "Not found")
             return
 
-        if not (get_openrouter_api_key() or get_groq_api_key()):
-            self.send_json({"error": "Missing OPENROUTER_API_KEY or GROQ_API_KEY. Add one to the .env file next to server.py and restart python3 server.py."}, 500)
+        if not has_any_ai_key():
+            self.send_json({"error": "Missing OPENROUTER_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY. Add one to the .env file next to server.py and restart python3 server.py."}, 500)
             return
 
         try:
@@ -227,8 +231,8 @@ class ScheduleHandler(SimpleHTTPRequestHandler):
             self.send_json({"error": str(error)}, 500)
 
     def handle_openrouter_scan_text(self):
-        if not (get_openrouter_api_key() or get_groq_api_key()):
-            self.send_json({"error": "Missing OPENROUTER_API_KEY or GROQ_API_KEY. Add one to the .env file next to server.py and restart python3 server.py."}, 500)
+        if not has_any_ai_key():
+            self.send_json({"error": "Missing OPENROUTER_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY. Add one to the .env file next to server.py and restart python3 server.py."}, 500)
             return
 
         try:
@@ -365,12 +369,24 @@ def get_openrouter_api_key():
     return ""
 
 
+def get_gemini_api_key():
+    for name in ("GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        value = os.environ.get(name, "").strip()
+        if value and value not in ("your_gemini_api_key_here", "your_google_api_key_here"):
+            return value
+    return ""
+
+
 def get_groq_api_key():
     for name in ("GROQ_API_KEY",):
         value = os.environ.get(name, "").strip()
         if value and value not in ("your_groq_api_key_here",):
             return value
     return ""
+
+
+def has_any_ai_key():
+    return bool(get_openrouter_api_key() or get_gemini_api_key() or get_groq_api_key())
 
 
 def encode_image_assets(images):
@@ -540,6 +556,22 @@ def build_groq_input(prompt_text, image_assets=None):
             "image_url": asset["data_url"],
         })
     return [{"role": "user", "content": content}]
+
+
+def build_gemini_parts(prompt_text, image_assets=None):
+    parts = [{"text": prompt_text}]
+    for asset in image_assets or []:
+        data_url = asset.get("data_url", "")
+        encoded = data_url.split(",", 1)[1] if "," in data_url else ""
+        if not encoded:
+            continue
+        parts.append({
+            "inline_data": {
+                "mime_type": asset.get("mime", "image/jpeg"),
+                "data": encoded,
+            }
+        })
+    return parts
 
 
 def schedule_prompt(month, calendar_name):
@@ -745,6 +777,43 @@ def call_groq(api_key, input_payload):
         raise AIProviderError("groq", f"Groq API error {error.code}: {body}", error.code)
 
 
+def call_gemini(api_key, prompt_text, image_assets=None, force_json=True):
+    url = GEMINI_URL_TEMPLATE.format(
+        model=urllib.parse.quote(GEMINI_MODEL, safe=""),
+        api_key=urllib.parse.quote(api_key, safe=""),
+    )
+    payload = {
+        "contents": [{
+            "role": "user",
+            "parts": build_gemini_parts(prompt_text, image_assets),
+        }],
+        "generationConfig": {
+            "temperature": 0,
+            "maxOutputTokens": 4096,
+        },
+    }
+    if force_json:
+        payload["generationConfig"]["responseMimeType"] = "application/json"
+
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": USER_AGENT,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=3600) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        body = error.read().decode("utf-8", "replace")
+        if error.code == 429:
+            raise AIProviderError("gemini", "Gemini rate limit hit (429). Trying the next backup provider.", 429)
+        raise AIProviderError("gemini", f"Gemini API error {error.code}: {body}", error.code)
+
+
 def extract_response_text(result):
     if isinstance(result, dict):
         output_text = result.get("output_text")
@@ -766,6 +835,19 @@ def extract_response_text(result):
     return json.dumps(result)
 
 
+def extract_response_text_from_gemini(result):
+    chunks = []
+    if isinstance(result, dict):
+        for candidate in result.get("candidates", []) or []:
+            content = candidate.get("content", {}) if isinstance(candidate, dict) else {}
+            for part in content.get("parts", []) or []:
+                if isinstance(part, dict) and isinstance(part.get("text"), str):
+                    chunks.append(part["text"])
+    if chunks:
+        return "\n".join(chunks)
+    return json.dumps(result)
+
+
 def extract_response_text_from_output(result):
     if isinstance(result, dict) and isinstance(result.get("output"), list):
         chunks = []
@@ -782,23 +864,20 @@ def extract_response_text_from_output(result):
     return extract_response_text(result)
 
 
-def should_fallback_to_groq(error):
-    if not isinstance(error, AIProviderError):
-        return False
-    return error.provider == "openrouter" and (error.code == 429 or (isinstance(error.code, int) and error.code >= 500))
-
-
 def call_schedule_ai_with_fallback(prompt_text, image_assets=None, force_json=True, preferred_provider="openrouter"):
     providers = []
-    ordered = [preferred_provider, "groq" if preferred_provider == "openrouter" else "openrouter"]
+    default_order = ["openrouter", "gemini", "groq"]
+    ordered = [preferred_provider] + [provider for provider in default_order if provider != preferred_provider]
     for provider in ordered:
         if provider == "openrouter" and get_openrouter_api_key() and provider not in providers:
+            providers.append(provider)
+        if provider == "gemini" and get_gemini_api_key() and provider not in providers:
             providers.append(provider)
         if provider == "groq" and get_groq_api_key() and provider not in providers:
             providers.append(provider)
 
     if not providers:
-        raise ValueError("Missing OPENROUTER_API_KEY or GROQ_API_KEY. Add one to the .env file next to server.py and restart python3 server.py.")
+        raise ValueError("Missing OPENROUTER_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY. Add one to the .env file next to server.py and restart python3 server.py.")
 
     last_error = None
     for provider in providers:
@@ -810,6 +889,14 @@ def call_schedule_ai_with_fallback(prompt_text, image_assets=None, force_json=Tr
                     force_json=force_json,
                 )
                 text = extract_response_text(result)
+            elif provider == "gemini":
+                result = call_gemini(
+                    get_gemini_api_key(),
+                    prompt_text,
+                    image_assets=image_assets,
+                    force_json=force_json,
+                )
+                text = extract_response_text_from_gemini(result)
             else:
                 result = call_groq(
                     get_groq_api_key(),
@@ -1434,12 +1521,20 @@ if __name__ == "__main__":
     load_dotenv()
     server = ThreadingHTTPServer(("", PORT), ScheduleHandler)
     print(f"Schedule Generator running at http://localhost:{PORT}")
-    if not get_openrouter_api_key() and not get_groq_api_key():
-        print("No AI key configured: add OPENROUTER_API_KEY=... or GROQ_API_KEY=... to the .env file next to server.py and restart.")
+    if not has_any_ai_key():
+        print("No AI key configured: add OPENROUTER_API_KEY=..., GEMINI_API_KEY=..., or GROQ_API_KEY=... to the .env file next to server.py and restart.")
+    elif get_openrouter_api_key() and get_gemini_api_key() and get_groq_api_key():
+        print("OpenRouter primary, Gemini fallback, Groq final fallback enabled.")
+    elif get_openrouter_api_key() and get_gemini_api_key():
+        print("OpenRouter primary, Gemini fallback enabled.")
     elif get_openrouter_api_key() and get_groq_api_key():
         print("OpenRouter primary, Groq fallback enabled.")
+    elif get_gemini_api_key() and get_groq_api_key():
+        print("Gemini primary, Groq fallback enabled.")
+    elif get_gemini_api_key():
+        print("Gemini primary enabled.")
     elif get_groq_api_key():
-        print("Groq fallback enabled.")
+        print("Groq primary enabled.")
     else:
         print("OpenRouter primary enabled.")
     try:

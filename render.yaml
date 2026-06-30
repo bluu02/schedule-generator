@@ -9,6 +9,8 @@ services:
         value: 3.11.9
       - key: OPENROUTER_MODEL
         value: openrouter/auto
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
       - key: GROQ_MODEL
         value: meta-llama/llama-4-scout-17b-16e-instruct
       - key: OPENROUTER_DOUBLE_CHECK
@@ -18,6 +20,8 @@ services:
       - key: NO_TIME_MODE
         value: "true"
       - key: OPENROUTER_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
         sync: false
       - key: GROQ_API_KEY
         sync: false

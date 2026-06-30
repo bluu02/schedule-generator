@@ -133,14 +133,22 @@ async function checkOpenRouterAvailability() {
     const health = await response.json();
     openrouterAvailable = Boolean(health.aiConfigured);
     updateScanModeUI();
-    if (health.openrouterConfigured && health.groqConfigured) {
+    if (health.openrouterConfigured && health.geminiConfigured && health.groqConfigured) {
+      grokBtn.title = "OpenRouter is primary, Gemini is backup, and Groq is final fallback.";
+    } else if (health.openrouterConfigured && health.geminiConfigured) {
+      grokBtn.title = "OpenRouter is primary and Gemini is ready as fallback.";
+    } else if (health.openrouterConfigured && health.groqConfigured) {
       grokBtn.title = "OpenRouter is primary and Groq is ready as fallback.";
+    } else if (health.geminiConfigured && health.groqConfigured) {
+      grokBtn.title = "Gemini is primary and Groq is ready as fallback.";
     } else if (health.openrouterConfigured) {
       grokBtn.title = "OpenRouter is ready.";
+    } else if (health.geminiConfigured) {
+      grokBtn.title = "Gemini is ready.";
     } else if (health.groqConfigured) {
-      grokBtn.title = "Groq fallback is ready.";
+      grokBtn.title = "Groq is ready.";
     } else {
-      grokBtn.title = "Set OPENROUTER_API_KEY or GROQ_API_KEY in .env and run python3 server.py";
+      grokBtn.title = "Set OPENROUTER_API_KEY, GEMINI_API_KEY, or GROQ_API_KEY in .env and run python3 server.py";
     }
   } catch {
     grokBtn.title = "Run python3 server.py to enable AI scanning";
