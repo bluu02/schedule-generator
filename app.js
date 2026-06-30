@@ -22,6 +22,8 @@ const exportSummary = document.querySelector("#exportSummary");
 const defaultTitle = document.querySelector("#defaultTitle");
 const calendarName = document.querySelector("#calendarName");
 const monthInput = document.querySelector("#monthInput");
+const monthSelect = document.querySelector("#monthSelect");
+const yearSelect = document.querySelector("#yearSelect");
 
 let events = [];
 let uploadedImages = [];
@@ -29,12 +31,14 @@ let previewUrls = [];
 let scanStatuses = [];
 let openrouterAvailable = false;
 let liveProgressTimer = null;
+let monthManuallyChanged = false;
+let autoUpdatingMonth = false;
 
-const today = new Date();
-monthInput.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-calendarName.value = defaultCalendarName();
+populateMonthYearPickers();
+syncMonthToCurrentDate({ force: true });
 checkOpenRouterAvailability();
 refreshUsageStats();
+setInterval(() => syncMonthToCurrentDate(), 60 * 1000);
 
 imageInput.addEventListener("change", () => {
   uploadedImages = Array.from(imageInput.files || []);
@@ -48,6 +52,8 @@ imageInput.addEventListener("change", () => {
 
 if (grokBtn) grokBtn.addEventListener("click", scanWithGrok);
 parseBtn.addEventListener("click", parseEvents);
+monthSelect.addEventListener("change", handleMonthYearPickerChange);
+yearSelect.addEventListener("change", handleMonthYearPickerChange);
 addRowBtn.addEventListener("click", () => {
   const base = selectedMonth();
   events.push({
@@ -68,6 +74,8 @@ clearBtn.addEventListener("click", () => {
   scanStatuses = [];
   imageInput.value = "";
   ocrText.value = "";
+  monthManuallyChanged = false;
+  syncMonthToCurrentDate({ force: true });
   grokBtn.disabled = true;
   renderPreviews();
   renderEvents();
@@ -83,7 +91,7 @@ sampleBtn.addEventListener("click", () => {
     "Fri 6/5 10:00-15:00 AIG Nishiizumigaoka",
     "Fri 6/5 15:00-19:00 Ebie"
   ].join("\n");
-  monthInput.value = "2026-06";
+  setScheduleMonth("2026-06", { manual: true });
   calendarName.value = "June 2026 Work Schedule";
   parseEvents();
 });
@@ -201,6 +209,7 @@ async function scanWithGrok() {
     events = canonicalizeEvents(events);
     ocrText.value = eventsToText(events);
     renderEvents();
+    scrollReviewIntoViewOnMobile();
     await refreshUsageStats();
     const providerLabel = fallbackUsed ? " Groq handled the fallback." : "";
     statusEl.textContent = events.length
@@ -474,6 +483,7 @@ function parseEvents() {
   events = ensureMonthCoverage(canonicalizeEvents(parsed));
   ocrText.value = eventsToText(events);
   renderEvents();
+  if (parsed.length) scrollReviewIntoViewOnMobile();
   statusEl.textContent = parsed.length
     ? `Found ${events.length} event${events.length === 1 ? "" : "s"} after duplicate cleanup.`
     : "No events found. Check the text for dates and time ranges.";
@@ -528,6 +538,77 @@ function selectedMonth() {
   return { year, month: month - 1 };
 }
 
+function currentMonthValue() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function populateMonthYearPickers() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const monthNames = Array.from({ length: 12 }, (_, index) =>
+    new Date(2000, index, 1).toLocaleString("en", { month: "long" })
+  );
+
+  monthSelect.innerHTML = monthNames
+    .map((name, index) => `<option value="${String(index + 1).padStart(2, "0")}">${name}</option>`)
+    .join("");
+
+  const startYear = currentYear - 3;
+  const endYear = currentYear + 5;
+  yearSelect.innerHTML = "";
+  for (let year = startYear; year <= endYear; year += 1) {
+    const option = document.createElement("option");
+    option.value = String(year);
+    option.textContent = String(year);
+    yearSelect.appendChild(option);
+  }
+}
+
+function setScheduleMonth(value, options = {}) {
+  monthInput.value = value;
+  updateMonthYearPickers(value);
+  if (options.manual) monthManuallyChanged = true;
+  calendarName.value = defaultCalendarName();
+}
+
+function updateMonthYearPickers(value) {
+  const [year, month] = String(value || "").split("-");
+  if (!year || !month) return;
+
+  if (!Array.from(yearSelect.options).some((option) => option.value === year)) {
+    const option = document.createElement("option");
+    option.value = year;
+    option.textContent = year;
+    yearSelect.appendChild(option);
+    yearSelect.innerHTML = Array.from(yearSelect.options)
+      .sort((a, b) => Number(a.value) - Number(b.value))
+      .map((option) => `<option value="${escapeAttr(option.value)}">${escapeHtml(option.textContent)}</option>`)
+      .join("");
+  }
+
+  monthSelect.value = month;
+  yearSelect.value = year;
+}
+
+function syncMonthToCurrentDate(options = {}) {
+  const nextMonth = currentMonthValue();
+  const canAutoUpdate = !monthManuallyChanged && !events.length && !uploadedImages.length && !ocrText.value.trim();
+  if (!options.force && (!canAutoUpdate || monthInput.value === nextMonth)) return;
+
+  autoUpdatingMonth = true;
+  setScheduleMonth(nextMonth);
+  calendarName.value = defaultCalendarName();
+  autoUpdatingMonth = false;
+}
+
+function handleMonthYearPickerChange() {
+  const year = yearSelect.value;
+  const month = monthSelect.value;
+  if (!year || !month) return;
+  setScheduleMonth(`${year}-${month}`, { manual: !autoUpdatingMonth });
+}
+
 function defaultCalendarName() {
   const base = selectedMonth();
   const monthName = new Date(base.year, base.month, 1).toLocaleString("en", { month: "long" });
@@ -541,6 +622,8 @@ function scheduleFileName() {
 }
 
 monthInput.addEventListener("change", () => {
+  if (!autoUpdatingMonth) monthManuallyChanged = true;
+  updateMonthYearPickers(monthInput.value);
   calendarName.value = defaultCalendarName();
 });
 
@@ -666,6 +749,11 @@ function renderEvents() {
   }
 
   updateExportState();
+}
+
+function scrollReviewIntoViewOnMobile() {
+  if (!window.matchMedia("(max-width: 560px)").matches) return;
+  eventsBody.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 eventsBody.addEventListener("input", (event) => {

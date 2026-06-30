@@ -4,14 +4,17 @@ A local web app for turning a monthly teacher schedule screenshot into calendar 
 
 ## Use
 
-1. Run `python3 server.py`.
-2. Open `http://localhost:4173`.
-3. Upload one or more schedule screenshots.
+1. Run `python3 -m pip install -r requirements.txt`.
+2. Run `python3 server.py`.
+3. Open `http://localhost:4173`.
+4. Upload one or more schedule screenshots.
    - Use non-overlapping screenshots so each date row appears only once.
-4. Click **Scan with OpenRouter**.
-5. Review or fix the recognized text and event rows.
-6. Click **Parse Events** if you edited the text.
-7. Click **Download ICS** or **Download for Apple**.
+   - Use clear, zoomed-in screenshots. Tiny or blurry uploads are rejected before AI scanning.
+   - PNG, JPG, and WebP uploads are accepted. Screenshots are sharpened, contrast-adjusted, resized, and converted before being sent to AI.
+5. Click **Scan with OpenRouter**.
+6. Review or fix the recognized text and event rows.
+7. Click **Parse Events** if you edited the text.
+8. Click **Download ICS** or **Download for Apple**.
 
 ## OpenRouter Setup
 
@@ -52,7 +55,7 @@ This project is ready to deploy on Render as a Python web service.
 2. In Render, create a new Web Service from that repo.
 3. Use these settings:
    - Runtime: `Python`
-   - Build command: `true`
+   - Build command: `pip install -r requirements.txt`
    - Start command: `python3 server.py`
 4. Add these environment variables in Render:
    - `OPENROUTER_API_KEY`

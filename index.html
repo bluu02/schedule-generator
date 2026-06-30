@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Schedule to Calendar</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="app.js?v=20260602n" defer></script>
+    <script src="app.js?v=20260630d" defer></script>
   </head>
   <body>
     <main class="shell">
@@ -34,7 +34,7 @@
             <div class="preview-grid" id="previewGrid" aria-label="Selected screenshot previews"></div>
             <p id="emptyPreview">No screenshots selected</p>
           </div>
-          <button class="primary wide" id="grokBtn" type="button" disabled>Scan with OpenRouter</button>
+          <button class="primary wide" id="grokBtn" type="button" disabled>Scan with AI</button>
           <div class="scan-loader" id="scanLoader" hidden>
             <div class="scan-loader-head">
               <strong>Scan Mission</strong>
@@ -60,9 +60,13 @@
               <span>Calendar name</span>
               <input id="calendarName" type="text" placeholder="June 2026 Work Schedule">
             </label>
-            <label>
+            <label class="month-picker">
               <span>Schedule month</span>
-              <input id="monthInput" type="month">
+              <div class="month-picker-controls">
+                <select id="monthSelect" aria-label="Schedule month"></select>
+                <select id="yearSelect" aria-label="Schedule year"></select>
+              </div>
+              <input id="monthInput" type="hidden">
             </label>
           </div>
 

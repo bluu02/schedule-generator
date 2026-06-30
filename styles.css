@@ -28,6 +28,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -404,6 +405,7 @@ label span {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   border: 1px solid #cfd6e2;
@@ -413,15 +415,27 @@ textarea {
 }
 
 input:focus-visible,
+select:focus-visible,
 textarea:focus-visible,
 button:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
 
-input {
+input,
+select {
   height: 42px;
   padding: 0 12px;
+}
+
+select {
+  appearance: auto;
+}
+
+.month-picker-controls {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(92px, 0.72fr);
+  gap: 8px;
 }
 
 textarea {
@@ -525,11 +539,11 @@ tbody tr:nth-child(even) td {
   }
 
   .upload-panel {
-    order: 1;
+    order: 2;
   }
 
   .editor-panel {
-    order: 2;
+    order: 1;
   }
 
   .preview-wrap {
@@ -585,6 +599,30 @@ tbody tr:nth-child(even) td {
   .editor-panel,
   .export-band {
     padding: 12px;
+  }
+
+  .editor-panel {
+    gap: 10px;
+  }
+
+  .controls-grid {
+    order: 1;
+  }
+
+  .parse-row {
+    order: 2;
+  }
+
+  .table-wrap {
+    order: 3;
+  }
+
+  .text-block {
+    order: 4;
+  }
+
+  .upload-panel {
+    gap: 10px;
   }
 
   .upload-box {
@@ -647,9 +685,17 @@ tbody tr:nth-child(even) td {
     height: 44px;
   }
 
+  select {
+    height: 44px;
+  }
+
+  .month-picker-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
   textarea {
-    min-height: 150px;
-    max-height: 38vh;
+    min-height: 96px;
+    max-height: 24vh;
   }
 
   .table-wrap {
@@ -757,5 +803,8 @@ tbody tr:nth-child(even) td {
 
   .export-band {
     margin-top: 12px;
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
   }
 }

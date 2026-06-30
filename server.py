@@ -13,6 +13,15 @@ from email.parser import BytesParser
 from email.policy import default as email_default_policy
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
+try:
+    from PIL import Image, ImageEnhance, ImageFilter, ImageOps, ImageStat
+except ImportError:
+    Image = None
+    ImageEnhance = None
+    ImageFilter = None
+    ImageOps = None
+    ImageStat = None
+
 
 PORT = int(os.environ.get("PORT", "4173"))
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
@@ -24,6 +33,11 @@ STRICT_MODE = os.environ.get("STRICT_MODE", "true").lower() in ("1", "true", "ye
 NO_TIME_MODE = os.environ.get("NO_TIME_MODE", "true").lower() in ("1", "true", "yes", "on")
 MAX_IMAGE_BYTES = 3 * 1024 * 1024
 MAX_IMAGES = 5
+MIN_SCREENSHOT_WIDTH = int(os.environ.get("MIN_SCREENSHOT_WIDTH", "700"))
+MIN_SCREENSHOT_HEIGHT = int(os.environ.get("MIN_SCREENSHOT_HEIGHT", "700"))
+TARGET_SCREENSHOT_LONG_EDGE = int(os.environ.get("TARGET_SCREENSHOT_LONG_EDGE", "1800"))
+MAX_SCREENSHOT_LONG_EDGE = int(os.environ.get("MAX_SCREENSHOT_LONG_EDGE", "2400"))
+BLUR_EDGE_VARIANCE_THRESHOLD = float(os.environ.get("BLUR_EDGE_VARIANCE_THRESHOLD", "90.0"))
 USER_AGENT = "ScheduleGenerator/1.0 (local OpenRouter client)"
 USAGE_FILE = "usage_stats.json"
 KNOWN_SITE_NAMES = [
@@ -365,18 +379,139 @@ def encode_image_assets(images):
         image.file.seek(0)
         data = image.file.read()
         image.file.seek(0)
-        if len(data) > MAX_IMAGE_BYTES:
-            raise ValueError(f"{image.filename} is larger than 3 MiB. OpenRouter image requests must stay small.")
-        mime = image.type or mimetypes.guess_type(image.filename or "")[0] or "image/jpeg"
-        if mime not in ("image/jpeg", "image/png"):
-            raise ValueError(f"{image.filename} must be JPG or PNG for AI scanning.")
-        encoded = base64.b64encode(data).decode("ascii")
+        processed = preprocess_screenshot(image.filename, image.type, data)
+        encoded = base64.b64encode(processed["data"]).decode("ascii")
         assets.append({
             "filename": image.filename or "",
-            "mime": mime,
-            "data_url": f"data:{mime};base64,{encoded}",
+            "mime": processed["mime"],
+            "data_url": f"data:{processed['mime']};base64,{encoded}",
+            "preprocessing": processed["metadata"],
         })
     return assets
+
+
+def preprocess_screenshot(filename, content_type, data):
+    if Image is None:
+        raise ValueError("Screenshot preprocessing requires Pillow. Run `pip install -r requirements.txt` and restart the server.")
+
+    if not data:
+        raise ValueError(f"{filename or 'Screenshot'} is empty.")
+
+    source_mime = content_type or mimetypes.guess_type(filename or "")[0] or ""
+    if source_mime not in ("image/jpeg", "image/png", "image/webp"):
+        raise ValueError(f"{filename or 'Screenshot'} must be JPG, PNG, or WebP for AI scanning.")
+
+    try:
+        with Image.open(io.BytesIO(data)) as source:
+            image = source.copy()
+    except Exception as error:
+        raise ValueError(f"{filename or 'Screenshot'} could not be read as an image: {error}")
+
+    original_width, original_height = image.size
+    if original_width < MIN_SCREENSHOT_WIDTH or original_height < MIN_SCREENSHOT_HEIGHT:
+        raise ValueError(
+            f"{filename or 'Screenshot'} is too small ({original_width}x{original_height}). "
+            f"Use at least {MIN_SCREENSHOT_WIDTH}x{MIN_SCREENSHOT_HEIGHT} so schedule text is readable."
+        )
+
+    blur_score = screenshot_blur_score(image)
+    if blur_score < BLUR_EDGE_VARIANCE_THRESHOLD:
+        raise ValueError(
+            f"{filename or 'Screenshot'} looks blurry or low-detail. "
+            "Retake it after zooming in, keeping the schedule text sharp."
+        )
+
+    image = normalize_screenshot_image(image)
+    processed_data, quality, processed_size = encode_preprocessed_jpeg(image)
+
+    if len(processed_data) > MAX_IMAGE_BYTES:
+        raise ValueError(
+            f"{filename or 'Screenshot'} is still larger than {MAX_IMAGE_BYTES // (1024 * 1024)} MiB after preprocessing. "
+            "Crop to fewer schedule rows or upload a smaller screenshot."
+        )
+
+    return {
+        "mime": "image/jpeg",
+        "data": processed_data,
+        "metadata": {
+            "originalMime": source_mime,
+            "originalWidth": original_width,
+            "originalHeight": original_height,
+            "processedWidth": processed_size[0],
+            "processedHeight": processed_size[1],
+            "blurScore": round(blur_score, 2),
+            "jpegQuality": quality,
+        },
+    }
+
+
+def screenshot_blur_score(image):
+    grayscale = ImageOps.grayscale(image)
+    grayscale.thumbnail((900, 900), Image.Resampling.LANCZOS)
+    laplacian = grayscale.filter(ImageFilter.Kernel(
+        (3, 3),
+        (0, 1, 0, 1, -4, 1, 0, 1, 0),
+        scale=1,
+        offset=128,
+    ))
+    stat = ImageStat.Stat(laplacian)
+    return float(stat.var[0] if stat.var else 0.0)
+
+
+def normalize_screenshot_image(image):
+    if image.mode in ("RGBA", "LA") or ("transparency" in image.info):
+        rgba = image.convert("RGBA")
+        background = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+        background.alpha_composite(rgba)
+        image = background.convert("RGB")
+    else:
+        image = image.convert("RGB")
+
+    image = resize_for_vision(image)
+    image = ImageOps.autocontrast(image, cutoff=1)
+    image = ImageEnhance.Contrast(image).enhance(1.35)
+    image = ImageEnhance.Sharpness(image).enhance(1.55)
+    image = image.filter(ImageFilter.UnsharpMask(radius=1.2, percent=140, threshold=3))
+    return image
+
+
+def resize_for_vision(image):
+    width, height = image.size
+    long_edge = max(width, height)
+    target_long_edge = long_edge
+    if long_edge < TARGET_SCREENSHOT_LONG_EDGE:
+        target_long_edge = TARGET_SCREENSHOT_LONG_EDGE
+    if target_long_edge > MAX_SCREENSHOT_LONG_EDGE:
+        target_long_edge = MAX_SCREENSHOT_LONG_EDGE
+    if target_long_edge == long_edge:
+        return image
+    scale = target_long_edge / long_edge
+    new_size = (max(1, round(width * scale)), max(1, round(height * scale)))
+    return image.resize(new_size, Image.Resampling.LANCZOS)
+
+
+def encode_preprocessed_jpeg(image):
+    current = image
+    for max_edge in (max(current.size), 2200, 2000, 1800, 1600):
+        if max(current.size) > max_edge:
+            current = resize_to_long_edge(current, max_edge)
+        for quality in (92, 88, 84, 80, 76, 72):
+            output = io.BytesIO()
+            current.save(output, format="JPEG", quality=quality, optimize=True, progressive=True)
+            data = output.getvalue()
+            if len(data) <= MAX_IMAGE_BYTES:
+                return data, quality, current.size
+    return data, quality, current.size
+
+
+def resize_to_long_edge(image, long_edge):
+    width, height = image.size
+    current_long_edge = max(width, height)
+    if current_long_edge <= long_edge:
+        return image
+    scale = long_edge / current_long_edge
+    new_size = (max(1, round(width * scale)), max(1, round(height * scale)))
+    return image.resize(new_size, Image.Resampling.LANCZOS)
 
 
 def build_openrouter_content(prompt_text, image_assets=None):
